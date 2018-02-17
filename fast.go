@@ -3,19 +3,19 @@ package main
 /* --- OPTIMIZATIONS ---
 
 1. regexp.match -> strings.contains
-2. ==TODO easyjson (user struct)
+2. easyjson (user struct)
 3. file: readAll -> readString
 4. for browser := range browsers: 2x -> 1x
 
 */
 
 import (
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"regexp"
+	//	"regexp"
 	"strings"
 	// "log"
 )
@@ -49,45 +49,26 @@ func FastSearch(out io.Writer) {
 		panic(err)
 	}
 
-	r := regexp.MustCompile("@") //TODO compile in init? OR use string.find
+	//	r := regexp.MustCompile("@") //TODO compile in init? OR use string.find
 	seenBrowsers := []string{}
 	uniqueBrowsers := 0
-	foundUsers := ""
+	//	foundUsers := ""
 
 	lines := strings.Split(string(fileContents), "\n") //TODO (split by line) read by line?
 
-	users := make([]map[string]interface{}, len(lines)) //+ alloc
-	//	var line string
-	for _, line := range lines {
-		user := make(map[string]interface{})
-		// fmt.Printf("%v %v\n", err, line)
-		err := json.Unmarshal([]byte(line), &user) //TODO easyjson: struct - ???
-		if err != nil {
-			panic(err)
-		}
-		users = append(users, user) //TODO allocate earlier
-	}
-
-	//TODO 2x iterations -> 1x
-	for i, user := range users { //TODO i is needed to be ouput
+	//var line string //???
+	//var buffer []byte //TODO set capacity?
+	user := &User{}
+	fmt.Fprintln(out, "found users:")
+	for i := range lines {
+		user.UnmarshalJSON([]byte(lines[i])) //???
 
 		isAndroid := false
 		isMSIE := false
 
-		browsers, ok := user["browsers"].([]interface{})
-		if !ok {
-			// log.Println("cant cast browsers")
-			continue
-		}
-
 		//TODO range browsers #1 (merge with #2)
-		for _, browserRaw := range browsers {
-			browser, ok := browserRaw.(string)
-			if !ok {
-				// log.Println("cant cast browser to string")
-				continue
-			}
-
+		//		for _, browserRaw := range browsers {
+		for _, browser := range user.Browsers {
 			//TODO ??? if Android -> else MSIE //can't be both in one browser line
 			if strings.Contains(browser, "Android") { //+
 				isAndroid = true
@@ -125,12 +106,18 @@ func FastSearch(out io.Writer) {
 		}
 
 		// log.Println("Android and MSIE user:", user["name"], user["email"])
-		email := r.ReplaceAllString(user["email"].(string), " [at] ")
-		foundUsers += fmt.Sprintf("[%d] %s <%s>\n", i, user["name"], email)
+		//==email := r.ReplaceAllString(user.Email, " [at] ") //TODO use strings module?
+		//==foundUsers += fmt.Sprintf("[%d] %s <%s>\n", i, user.Name, email)
+
+		//				foundUsers += fmt.Sprintf("[%d] %s <%s>\n", i, user.Name, r.ReplaceAllString(user.Email, " [at] ")) //TODO use strings module?
+		//		fmt.Fprintf(out, "[%d] %s <%s>\n", i, user.Name, r.ReplaceAllString(user.Email, " [at] "))
+
+		fmt.Fprintf(out, "[%d] %s <%s>\n", i, user.Name, strings.Replace(user.Email, "@", " [at] ", -1))
 	}
 
-	fmt.Fprintln(out, "found users:\n"+foundUsers)
-	fmt.Fprintln(out, "Total unique browsers", len(seenBrowsers))
+	//fmt.Fprintln(out, "found users:\n"+foundUsers)
+	//	fmt.Fprintln(out, "Total unique browsers", len(seenBrowsers))
+	fmt.Fprintln(out, "\nTotal unique browsers", len(seenBrowsers))
 }
 
 func main() {
