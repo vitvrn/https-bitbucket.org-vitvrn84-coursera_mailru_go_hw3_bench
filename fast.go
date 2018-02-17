@@ -5,7 +5,7 @@ package main
 1. regexp.match -> strings.contains
 2. ==TODO easyjson (user struct)
 3. file: readAll -> readString
-4. ==TODO for browser := range browsers: 2x -> 1x
+4. for browser := range browsers: 2x -> 1x
 
 */
 
@@ -13,13 +13,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	//"io/ioutil"
+	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
 	// "log"
-	"bufio"
-	//easyjson "github.com/mailru/easyjson"
 )
 
 //easyjson:json
@@ -46,26 +44,21 @@ func FastSearch(out io.Writer) {
 	}
 	defer file.Close() //+
 
-	//fileContents, err := ioutil.ReadAll(file) //TODO read when needed?
-	//if err != nil {
-	//	panic(err)
-	//}
-	reader := bufio.NewReader(file)
+	fileContents, err := ioutil.ReadAll(file) //TODO read when needed?
+	if err != nil {
+		panic(err)
+	}
 
 	r := regexp.MustCompile("@") //TODO compile in init? OR use string.find
 	seenBrowsers := []string{}
 	uniqueBrowsers := 0
 	foundUsers := ""
 
-	//lines := strings.Split(string(fileContents), "\n") //TODO (split by line) read by line?
+	lines := strings.Split(string(fileContents), "\n") //TODO (split by line) read by line?
 
-	users := make([]map[string]interface{}, 0)
-	//for _, line := range lines {
-	var line string
-	var err0 error
-	for {
-		line, err0 = reader.ReadString('\n') //TODO remove '\n'?
-
+	users := make([]map[string]interface{}, len(lines)) //+ alloc
+	//	var line string
+	for _, line := range lines {
 		user := make(map[string]interface{})
 		// fmt.Printf("%v %v\n", err, line)
 		err := json.Unmarshal([]byte(line), &user) //TODO easyjson: struct - ???
@@ -73,10 +66,6 @@ func FastSearch(out io.Writer) {
 			panic(err)
 		}
 		users = append(users, user) //TODO allocate earlier
-
-		if err0 != nil {
-			break
-		}
 	}
 
 	//TODO 2x iterations -> 1x
