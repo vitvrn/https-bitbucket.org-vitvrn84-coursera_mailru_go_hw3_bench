@@ -4,27 +4,23 @@ package main
 
 1. regexp.match -> strings.contains
 2. easyjson (user struct)
-3. file: readAll -> readString
+3. file: readAll -> readString|readSlice
 4. for browser := range browsers: 2x -> 1x
-5. ==TODO read file by line (don't use ReadAll)
+5. seenBrowsers: slice -> map
 
 */
 
 import (
-	//"encoding/json"
 	"fmt"
 	"io"
-	//	"io/ioutil"
 	"os"
-	//	"regexp"
 	"strings"
-	// "log"
 
 	"bufio"
 )
 
 //easyjson:json
-type User struct { //TODO use easyjson
+type User struct {
 	Browsers []string `json:"browsers"`
 	//	Company  string   //--- `json:"company"`
 	//	Country  string   //--- `json:"country"`
@@ -35,8 +31,8 @@ type User struct { //TODO use easyjson
 }
 
 func init() {
-	//TODO prepare data structures etc...
-	println("Hello")
+	//TODO prepare data structures etc..?
+	println("Preparing...")
 }
 
 // вам надо написать более быструю оптимальную этой функции
@@ -49,13 +45,14 @@ func FastSearch(out io.Writer) {
 
 	reader := bufio.NewReader(file)
 
-	seenBrowsers := make([]string, 0, 128) //TODO 32? 64? 128? ???
+	seenBrowsers := make(map[string]struct{}, 128)
+
 	uniqueBrowsers := 0
 	buffer := make([]byte, 0, 1024) //TODO 256? 512? 1024? ???
 	user := &User{}
-	var readErr error
 
 	fmt.Fprintln(out, "found users:")
+	var readErr error
 	for i := 0; readErr == nil; i++ {
 		buffer, readErr = reader.ReadSlice('\n')
 
@@ -68,33 +65,17 @@ func FastSearch(out io.Writer) {
 			//TODO ??? if Android -> else MSIE //can't be both in one browser line
 			if strings.Contains(browser, "Android") { //+
 				isAndroid = true
-				notSeenBefore := true
-				for _, item := range seenBrowsers { //TODO use map[string]struct{} ??
-					if item == browser {
-						notSeenBefore = false
-						break //+
-					}
-				}
-				if notSeenBefore {
-					// log.Printf("SLOW New browser: %s, first seen: %s", browser, user["name"])
-					seenBrowsers = append(seenBrowsers, browser)
+				if _, seenBefore := seenBrowsers[browser]; !seenBefore {
+					seenBrowsers[browser] = struct{}{}
 					uniqueBrowsers++
 				}
-				continue //??? if Android -> else MSIE
+				continue //TODO ??? if Android -> else MSIE
 			}
 
 			if strings.Contains(browser, "MSIE") { //+
 				isMSIE = true
-				notSeenBefore := true
-				for _, item := range seenBrowsers {
-					if item == browser {
-						notSeenBefore = false
-						break //+
-					}
-				}
-				if notSeenBefore {
-					// log.Printf("SLOW New browser: %s, first seen: %s", browser, user["name"])
-					seenBrowsers = append(seenBrowsers, browser)
+				if _, seenBefore := seenBrowsers[browser]; !seenBefore {
+					seenBrowsers[browser] = struct{}{}
 					uniqueBrowsers++
 				}
 			}
@@ -104,12 +85,10 @@ func FastSearch(out io.Writer) {
 			continue
 		}
 
-		// log.Println("Android and MSIE user:", user["name"], user["email"])
-		fmt.Fprintf(out, "[%d] %s <%s>\n", i, user.Name, strings.Replace(user.Email, "@", " [at] ", -1))
+		fmt.Fprintf(out, "[%d] %s <%s>\n", i, user.Name, strings.Replace(string(user.Email), "@", " [at] ", -1))
 	}
 
-	//	fmt.Fprintln(out, "Total unique browsers", len(seenBrowsers))
-	fmt.Fprintln(out, "\nTotal unique browsers", len(seenBrowsers))
+	fmt.Fprintln(out, "\nTotal unique browsers", uniqueBrowsers)
 }
 
 func main() {
