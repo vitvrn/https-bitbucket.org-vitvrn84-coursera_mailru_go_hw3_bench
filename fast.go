@@ -6,6 +6,7 @@ package main
 2. easyjson (user struct)
 3. file: readAll -> readString
 4. for browser := range browsers: 2x -> 1x
+5. ==TODO read file by line (don't use ReadAll)
 
 */
 
@@ -13,11 +14,13 @@ import (
 	//"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
+	//	"io/ioutil"
 	"os"
 	//	"regexp"
 	"strings"
 	// "log"
+
+	"bufio"
 )
 
 //easyjson:json
@@ -44,38 +47,32 @@ func FastSearch(out io.Writer) {
 	}
 	defer file.Close() //+
 
-	fileContents, err := ioutil.ReadAll(file) //TODO read when needed?
-	if err != nil {
-		panic(err)
-	}
+	reader := bufio.NewReader(file)
 
-	//	r := regexp.MustCompile("@") //TODO compile in init? OR use string.find
-	seenBrowsers := []string{}
+	seenBrowsers := make([]string, 0, 128) //TODO 32? 64? 128? ???
 	uniqueBrowsers := 0
-	//	foundUsers := ""
-
-	lines := strings.Split(string(fileContents), "\n") //TODO (split by line) read by line?
-
-	//var line string //???
-	//var buffer []byte //TODO set capacity?
+	buffer := make([]byte, 0, 1024) //TODO 256? 512? 1024? ???
 	user := &User{}
+	var readErr error
+
 	fmt.Fprintln(out, "found users:")
-	for i := range lines {
-		user.UnmarshalJSON([]byte(lines[i])) //???
+	for i := 0; readErr == nil; i++ {
+		buffer, readErr = reader.ReadSlice('\n')
+
+		user.UnmarshalJSON(buffer)
 
 		isAndroid := false
 		isMSIE := false
 
-		//TODO range browsers #1 (merge with #2)
-		//		for _, browserRaw := range browsers {
 		for _, browser := range user.Browsers {
 			//TODO ??? if Android -> else MSIE //can't be both in one browser line
 			if strings.Contains(browser, "Android") { //+
 				isAndroid = true
 				notSeenBefore := true
-				for _, item := range seenBrowsers {
+				for _, item := range seenBrowsers { //TODO use map[string]struct{} ??
 					if item == browser {
 						notSeenBefore = false
+						break //+
 					}
 				}
 				if notSeenBefore {
@@ -83,6 +80,7 @@ func FastSearch(out io.Writer) {
 					seenBrowsers = append(seenBrowsers, browser)
 					uniqueBrowsers++
 				}
+				continue //??? if Android -> else MSIE
 			}
 
 			if strings.Contains(browser, "MSIE") { //+
@@ -91,6 +89,7 @@ func FastSearch(out io.Writer) {
 				for _, item := range seenBrowsers {
 					if item == browser {
 						notSeenBefore = false
+						break //+
 					}
 				}
 				if notSeenBefore {
@@ -106,16 +105,9 @@ func FastSearch(out io.Writer) {
 		}
 
 		// log.Println("Android and MSIE user:", user["name"], user["email"])
-		//==email := r.ReplaceAllString(user.Email, " [at] ") //TODO use strings module?
-		//==foundUsers += fmt.Sprintf("[%d] %s <%s>\n", i, user.Name, email)
-
-		//				foundUsers += fmt.Sprintf("[%d] %s <%s>\n", i, user.Name, r.ReplaceAllString(user.Email, " [at] ")) //TODO use strings module?
-		//		fmt.Fprintf(out, "[%d] %s <%s>\n", i, user.Name, r.ReplaceAllString(user.Email, " [at] "))
-
 		fmt.Fprintf(out, "[%d] %s <%s>\n", i, user.Name, strings.Replace(user.Email, "@", " [at] ", -1))
 	}
 
-	//fmt.Fprintln(out, "found users:\n"+foundUsers)
 	//	fmt.Fprintln(out, "Total unique browsers", len(seenBrowsers))
 	fmt.Fprintln(out, "\nTotal unique browsers", len(seenBrowsers))
 }
